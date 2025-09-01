@@ -1,0 +1,33 @@
+GET http://localhost:8080/admin/metrics HTTP/1.1
+
+
+### 
+
+GET http://localhost:8080/admin/healthz HTTP/1.1
+
+
+### 
+
+GET http://localhost:8080/app/ HTTP/1.1
+
+
+### 
+
+POST http://localhost:8080/api/validate_chirp HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "body": "This is an opinion I need to share with the world"
+}
+
+
+### 
+
+POST http://localhost:8080/api/validate_chirp HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "body": "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
+}
