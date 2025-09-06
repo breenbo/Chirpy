@@ -1,13 +1,30 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"slices"
+	"strings"
 	"sync/atomic"
+
+	"github.com/breenbo/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	_, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// dbQueries := database.New(db)
+
 	// create a server
 	serveMux := http.NewServeMux()
 	// serve index.html from root directory to /, remove the prefix from the url so it serves files from root directory
@@ -41,6 +58,7 @@ func readiness(w http.ResponseWriter, r *http.Request) {
 // count number of hits to fileserver
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries      *database.Queries
 }
 
 // called on each request, but why???
@@ -113,10 +131,10 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// return valid response
-	w.Header().Set("Content-type", "application/json;charset=utf-8")
+	w.Header().Set("Content-type", " application/json;charset=utf-8")
 	w.WriteHeader(200)
 	response := okRes{
-		Cleaned_body: "cleaned body",
+		Cleaned_body: replaceBadWords(req_body.Body),
 	}
 	data, err := json.Marshal(&response)
 	if err != nil {
@@ -127,5 +145,14 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func replaceBadWords(body string) string {
-	return body
+	badwords := []string{"kerfuffle", "sharbert", "fornax"}
+	strArray := strings.Split(body, " ")
+
+	for i, word := range strArray {
+		if slices.Contains(badwords, strings.ToLower(word)) {
+			strArray[i] = "****"
+		}
+	}
+
+	return strings.Join(strArray, " ")
 }
