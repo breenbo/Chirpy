@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE users(
-    id         TEXT PRIMARY KEY,
+    id         UUID PRIMARY KEY,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email      TEXT NOT NULL
