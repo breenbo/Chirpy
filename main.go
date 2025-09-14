@@ -40,6 +40,13 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 }
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    string    `json:"user_id"`
+}
 
 func initDB() (*sql.DB, error) {
 	godotenv.Load()
@@ -65,6 +72,7 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("POST /admin/reset", apiCfg.resetUsersHandler)
 	serveMux.HandleFunc("POST /api/users", apiCfg.createUserHandler)
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.createChirpsHandler)
+	serveMux.HandleFunc("GET /api/chirps", apiCfg.getChirpsHandler)
 	//
 	// setup the server
 	//
@@ -204,13 +212,6 @@ func (cfg *apiConfig) resetUsersHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	type Chirp struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		UserID    string    `json:"user_id"`
-	}
 	type Request struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
@@ -263,6 +264,36 @@ func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request
 		Body:      res.Body,
 		UserID:    res.UserID.String(),
 	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		w.Write([]byte("Error parsing response json"))
+	} else {
+		w.Write(data)
+	}
+}
+
+func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	// get chirps from db
+	res, err := cfg.dbQueries.GetAllChirps(r.Context())
+	if err != nil {
+		msg := fmt.Sprintf("Error gettings chirps: %v", err)
+		returnParseError(w, msg)
+		return
+	}
+	// return the chirps
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	response := []Chirp{}
+	for _, chirp := range res {
+		response = append(response, Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID.String(),
+		})
+	}
+
 	data, err := json.Marshal(response)
 	if err != nil {
 		w.Write([]byte("Error parsing response json"))

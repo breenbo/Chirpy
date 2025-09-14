@@ -39,3 +39,10 @@ Accept: application/json
   "body": "chirp test",
   "user_id": "0aeee671-9ef0-4260-9349-b9399fbb56ed"
 }
+
+
+### 
+
+GET http://localhost:8080/api/chirps HTTP/1.1
+Content-Type: application/json
+Accept: application/json
