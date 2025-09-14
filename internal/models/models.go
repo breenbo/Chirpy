@@ -12,6 +12,8 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	// hide the hashed password
+	HashedPassword string `json:"-"`
 }
 
 // Chirp represents a chirp in the system
@@ -30,6 +32,11 @@ type ErrorResponse struct {
 
 // CreateUserRequest represents the request body for creating a user
 type CreateUserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }

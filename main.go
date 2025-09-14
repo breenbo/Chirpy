@@ -61,8 +61,9 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("GET /admin/healthz", readiness)
 	serveMux.HandleFunc("GET /admin/metrics", apiCfg.getMetricsHandler)
 	// users
-	serveMux.HandleFunc("POST /admin/reset", userHandler.ResetUsers)
+	serveMux.HandleFunc("POST /api/login", userHandler.Login)
 	serveMux.HandleFunc("POST /api/users", userHandler.CreateUser)
+	serveMux.HandleFunc("POST /admin/reset", userHandler.ResetUsers)
 	// chirps
 	serveMux.HandleFunc("POST /api/chirps", chirpHandler.CreateChirps)
 	serveMux.HandleFunc("GET /api/chirps", chirpHandler.GetChirps)
