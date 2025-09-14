@@ -73,6 +73,7 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("POST /api/users", apiCfg.createUserHandler)
 	serveMux.HandleFunc("POST /api/chirps", apiCfg.createChirpsHandler)
 	serveMux.HandleFunc("GET /api/chirps", apiCfg.getChirpsHandler)
+	serveMux.HandleFunc("GET /api/chirps/{id}", apiCfg.getOneChirpHandler)
 	//
 	// setup the server
 	//
@@ -292,6 +293,50 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 			Body:      chirp.Body,
 			UserID:    chirp.UserID.String(),
 		})
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		w.Write([]byte("Error parsing response json"))
+	} else {
+		w.Write(data)
+	}
+}
+
+func (cfg *apiConfig) getOneChirpHandler(w http.ResponseWriter, r *http.Request) {
+	chirp_id_str := r.PathValue("id")
+	if chirp_id_str == "" {
+		msg := "missing chirp id"
+		returnParseError(w, msg)
+		return
+	}
+	chirp_id, err := uuid.Parse(chirp_id_str)
+	if err != nil {
+		msg := fmt.Sprintf("Error parsing chirp id: %v", err)
+		returnParseError(w, msg)
+		return
+	}
+
+	res, err := cfg.dbQueries.GetOneChirp(r.Context(), chirp_id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			msg := fmt.Sprintf("Error getting chirp %s: %v", chirp_id, err)
+			w.Header().Set("Content-Type", "application/json;charset=utf-8")
+			w.WriteHeader(404)
+			w.Write([]byte(msg))
+			return
+		}
+	}
+
+	// return the chirps
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	response := Chirp{
+		ID:        res.ID,
+		CreatedAt: res.CreatedAt,
+		UpdatedAt: res.UpdatedAt,
+		Body:      res.Body,
+		UserID:    res.UserID.String(),
 	}
 
 	data, err := json.Marshal(response)
