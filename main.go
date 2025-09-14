@@ -63,8 +63,8 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("GET /admin/metrics", apiCfg.getMetricsHandler)
 	// serveMux.HandleFunc("POST /admin/reset", apiCfg.resetMetricsHandler)
 	serveMux.HandleFunc("POST /admin/reset", apiCfg.resetUsersHandler)
-	serveMux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 	serveMux.HandleFunc("POST /api/users", apiCfg.createUserHandler)
+	serveMux.HandleFunc("POST /api/chirps", apiCfg.createChirpsHandler)
 	//
 	// setup the server
 	//
@@ -106,55 +106,6 @@ func (cfg *apiConfig) getMetricsHandler(w http.ResponseWriter, r *http.Request) 
 		  </body>
 		</html>
 	`, cfg.fileserverHits.Load())
-}
-
-func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
-	type reqBody struct {
-		Body string `json:"body"`
-	}
-	type okRes struct {
-		Cleaned_body string `json:"cleaned_body"`
-	}
-	type errorRes struct {
-		Error string `json:"error"`
-	}
-	// get the json body
-	decoder := json.NewDecoder(r.Body)
-	req_body := reqBody{}
-	err := decoder.Decode(&req_body)
-	if err != nil {
-		returnParseError(w, "error parsing request body")
-		return
-	}
-
-	// return error if body is too long
-	if len(req_body.Body) > 140 {
-		w.Header().Set("Content-type", "application/json;charset=utf-8")
-		w.WriteHeader(400)
-		resBody := errorRes{
-			Error: "Chirp is too long",
-		}
-		data, err := json.Marshal(resBody)
-		if err != nil {
-			w.Write([]byte("error parsing json"))
-		} else {
-			w.Write(data)
-		}
-		return
-	}
-
-	// return valid response
-	w.Header().Set("Content-type", " application/json;charset=utf-8")
-	w.WriteHeader(200)
-	response := okRes{
-		Cleaned_body: replaceBadWords(req_body.Body),
-	}
-	data, err := json.Marshal(&response)
-	if err != nil {
-		w.Write([]byte("error parsing json"))
-	} else {
-		w.Write(data)
-	}
 }
 
 func replaceBadWords(body string) string {
@@ -250,4 +201,72 @@ func (cfg *apiConfig) resetUsersHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(200)
+}
+
+func (cfg *apiConfig) createChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	type Chirp struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserID    string    `json:"user_id"`
+	}
+	type Request struct {
+		Body   string    `json:"body"`
+		UserID uuid.UUID `json:"user_id"`
+	}
+	type errorRes struct {
+		Error string `json:"error"`
+	}
+
+	// get the body of the request
+	decoder := json.NewDecoder(r.Body)
+	req_body := Request{}
+	err := decoder.Decode(&req_body)
+	if err != nil {
+		msg := fmt.Sprintf("Error parsing request body: %v", err)
+		returnParseError(w, msg)
+		return
+	}
+
+	// validate the chirp len
+	if len(req_body.Body) > 140 {
+		w.Header().Set("Content-type", "application/json;charset=utf-8")
+		w.WriteHeader(400)
+		resBody := errorRes{
+			Error: "Chirp is too long",
+		}
+		data, err := json.Marshal(resBody)
+		if err != nil {
+			w.Write([]byte("error parsing json"))
+		} else {
+			w.Write(data)
+		}
+		return
+	}
+
+	// create chirp on db
+	res, err := cfg.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams(req_body))
+	if err != nil {
+		msg := fmt.Sprintf("Error creating chirp: %v", err)
+		returnParseError(w, msg)
+		return
+	}
+
+	// return the created created chirp
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(201)
+	response := Chirp{
+		ID:        res.ID,
+		CreatedAt: res.CreatedAt,
+		UpdatedAt: res.UpdatedAt,
+		Body:      res.Body,
+		UserID:    res.UserID.String(),
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		w.Write([]byte("Error parsing response json"))
+	} else {
+		w.Write(data)
+	}
 }
