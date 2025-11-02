@@ -25,13 +25,13 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	// get the secret to use for JWT
-	secret := os.Getenv("SECRET")
+	// get the jwtSecret to use for JWT
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	apiCfg := &apiConfig{
 		fileserverHits: atomic.Int32{},
 		dbQueries:      dbQueries,
-		secret:         secret,
+		jwtSecret:      jwtSecret,
 	}
 
 	initServer(apiCfg)
@@ -42,7 +42,7 @@ func main() {
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
-	secret         string
+	jwtSecret      string
 }
 
 func initDB() (*sql.DB, error) {
@@ -60,8 +60,8 @@ func initDB() (*sql.DB, error) {
 }
 
 func initServer(apiCfg *apiConfig) {
-	userHandler := handlers.NewUserHandler(apiCfg.dbQueries, apiCfg.secret)
-	chirpHandler := handlers.NewChirpHandler(apiCfg.dbQueries)
+	userHandler := handlers.NewUserHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
+	chirpHandler := handlers.NewChirpHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
 
 	// create a server
 	serveMux := http.NewServeMux()

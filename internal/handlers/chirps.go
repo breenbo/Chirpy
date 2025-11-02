@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/breenbo/chirpy/internal/auth"
 	"github.com/breenbo/chirpy/internal/database"
 	"github.com/breenbo/chirpy/internal/models"
 	"github.com/google/uuid"
@@ -28,27 +29,42 @@ func replaceBadWords(body string) string {
 
 type ChirpHandler struct {
 	dbQueries *database.Queries
+	jwtSecret string
 }
 
-func NewChirpHandler(dbQueries *database.Queries) *ChirpHandler {
+func NewChirpHandler(dbQueries *database.Queries, jwtSecret string) *ChirpHandler {
 	return &ChirpHandler{
 		dbQueries: dbQueries,
+		jwtSecret: jwtSecret, // access to secret from apiCfg
 	}
 }
 
 func (ch *ChirpHandler) CreateChirps(w http.ResponseWriter, r *http.Request) {
 	type Request struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
 	}
 	type errorRes struct {
 		Error string `json:"error"`
 	}
 
+	// check the token is valid
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		msg := fmt.Sprintf("Error getting token: %v", err)
+		ReturnParseError(w, msg)
+		return
+	}
+	userID, err := auth.ValidateJWT(token, ch.jwtSecret)
+	if err != nil {
+		msg := fmt.Sprintf("Error validating token: %v", err)
+		ReturnParseError(w, msg)
+		return
+	}
+
 	// get the body of the request
 	decoder := json.NewDecoder(r.Body)
-	req_body := Request{}
-	err := decoder.Decode(&req_body)
+	reqBody := Request{}
+	err = decoder.Decode(&reqBody)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing request body: %v", err)
 		ReturnParseError(w, msg)
@@ -56,7 +72,7 @@ func (ch *ChirpHandler) CreateChirps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate the chirp len
-	if len(req_body.Body) > 140 {
+	if len(reqBody.Body) > 140 {
 		w.Header().Set("Content-type", "application/json;charset=utf-8")
 		w.WriteHeader(400)
 		resBody := errorRes{
@@ -72,7 +88,10 @@ func (ch *ChirpHandler) CreateChirps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create chirp on db
-	res, err := ch.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams(req_body))
+	res, err := ch.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   replaceBadWords(reqBody.Body),
+		UserID: userID,
+	})
 	if err != nil {
 		msg := fmt.Sprintf("Error creating chirp: %v", err)
 		ReturnParseError(w, msg)
@@ -128,23 +147,23 @@ func (ch *ChirpHandler) GetChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ch *ChirpHandler) GetOneChirp(w http.ResponseWriter, r *http.Request) {
-	chirp_id_str := r.PathValue("id")
-	if chirp_id_str == "" {
+	chirpIDStr := r.PathValue("id")
+	if chirpIDStr == "" {
 		msg := "missing chirp id"
 		ReturnParseError(w, msg)
 		return
 	}
-	chirp_id, err := uuid.Parse(chirp_id_str)
+	chirpID, err := uuid.Parse(chirpIDStr)
 	if err != nil {
 		msg := fmt.Sprintf("Error parsing chirp id: %v", err)
 		ReturnParseError(w, msg)
 		return
 	}
 
-	res, err := ch.dbQueries.GetOneChirp(r.Context(), chirp_id)
+	res, err := ch.dbQueries.GetOneChirp(r.Context(), chirpID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			msg := fmt.Sprintf("Error getting chirp %s: %v", chirp_id, err)
+			msg := fmt.Sprintf("Error getting chirp %s: %v", chirpID, err)
 			w.Header().Set("Content-Type", "application/json;charset=utf-8")
 			w.WriteHeader(404)
 			w.Write([]byte(msg))

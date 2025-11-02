@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ func HashPassword(password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return hash, nil
 }
 
@@ -27,8 +29,10 @@ func HashPassword(password string) (string, error) {
 func CheckPasswordHash(password, hash string) (bool, error) {
 	match, err := argon2id.ComparePasswordAndHash(password, hash)
 	if err != nil {
+		log.Printf("Error comparing password and hash: %v", err)
 		return false, err
 	}
+
 	return match, nil
 }
 
@@ -45,6 +49,7 @@ func MakeJWT(
 		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(expiresIn)),
 		Subject:   userID.String(),
 	})
+
 	return token.SignedString(signingKey)
 }
 
@@ -77,6 +82,7 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("invalid user ID: %w", err)
 	}
+
 	return id, nil
 }
 

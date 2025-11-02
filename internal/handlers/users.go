@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -42,6 +43,7 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		ReturnParseError(w, msg)
 		return
 	}
+
 	res, err := uh.dbQueries.CreateUser(r.Context(), database.CreateUserParams{
 		Email:          reqBody.Email,
 		HashedPassword: hashPass,
@@ -86,8 +88,6 @@ func (uh *UserHandler) ResetUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (uh *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
-	const defaultExpiration = 3600
-
 	// get the body of the request
 	decoder := json.NewDecoder(r.Body)
 	reqBody := models.LoginRequest{}
@@ -100,12 +100,9 @@ func (uh *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// manage expiration time, set to 1 hour if not present
-	expirationTime := defaultExpiration
-	if reqBody.ExpiresInSeconds != nil {
-		expirationTime = *reqBody.ExpiresInSeconds
-		if *reqBody.ExpiresInSeconds > 3600 {
-			expirationTime = defaultExpiration
-		}
+	expirationTime := time.Hour
+	if reqBody.ExpiresInSeconds > 0 && reqBody.ExpiresInSeconds < 3600 {
+		expirationTime = time.Duration(reqBody.ExpiresInSeconds) * time.Second
 	}
 
 	w.Header().Set("Content-type", "application/json;charset=utf-8")
@@ -117,11 +114,14 @@ func (uh *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passErr, err := auth.CheckPasswordHash(reqBody.Password, user.HashedPassword)
+	match, err := auth.CheckPasswordHash(reqBody.Password, user.HashedPassword)
 	if err != nil {
+		log.Printf("Error checking password: %v", err)
+		w.WriteHeader(500)
+		w.Write([]byte("Internal server error"))
 		return
 	}
-	if passErr {
+	if !match {
 		w.WriteHeader(401)
 		w.Write([]byte("incorrect email or password"))
 		return
@@ -130,18 +130,25 @@ func (uh *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// create a token for the logged in user
 	token, err := auth.MakeJWT(user.ID, uh.jwtSecret, time.Duration(expirationTime))
 	if err != nil {
+		w.Write([]byte("Error creating token"))
 		return
 	}
 
 	w.WriteHeader(200)
-	response := models.User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     token,
+	type response struct {
+		models.User
+		Token string `json:"token"`
 	}
-	data, err := json.Marshal(response)
+
+	data, err := json.Marshal(response{
+		User: models.User{
+			ID:        user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email:     user.Email,
+		},
+		Token: token,
+	})
 	if err != nil {
 		w.Write([]byte("Error parsing response json"))
 	} else {
