@@ -21,13 +21,20 @@ func main() {
 	}
 	dbQueries := database.New(db)
 
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	// get the secret to use for JWT
+	secret := os.Getenv("SECRET")
+
 	apiCfg := &apiConfig{
 		fileserverHits: atomic.Int32{},
 		dbQueries:      dbQueries,
+		secret:         secret,
 	}
 
 	initServer(apiCfg)
-
 }
 
 // count number of hits to fileserver
@@ -35,10 +42,14 @@ func main() {
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
+	secret         string
 }
 
 func initDB() (*sql.DB, error) {
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	dbURL := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -49,7 +60,7 @@ func initDB() (*sql.DB, error) {
 }
 
 func initServer(apiCfg *apiConfig) {
-	userHandler := handlers.NewUserHandler(apiCfg.dbQueries)
+	userHandler := handlers.NewUserHandler(apiCfg.dbQueries, apiCfg.secret)
 	chirpHandler := handlers.NewChirpHandler(apiCfg.dbQueries)
 
 	// create a server
@@ -76,13 +87,19 @@ func initServer(apiCfg *apiConfig) {
 		Handler: serveMux,
 	}
 	// start the server
-	server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func readiness(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, err := w.Write([]byte("OK"))
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // called on each request, but why???
@@ -98,7 +115,7 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 func (cfg *apiConfig) getMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "text/html;charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `
+	_, err := fmt.Fprintf(w, `
 		<html>
 		  <body>
 		    <h1>Welcome, Chirpy Admin</h1>
@@ -106,4 +123,7 @@ func (cfg *apiConfig) getMetricsHandler(w http.ResponseWriter, r *http.Request) 
 		  </body>
 		</html>
 	`, cfg.fileserverHits.Load())
+	if err != nil {
+		log.Fatal(err)
+	}
 }

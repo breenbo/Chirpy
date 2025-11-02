@@ -12,6 +12,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 	// hide the hashed password
 	HashedPassword string `json:"-"`
 }
@@ -37,8 +38,9 @@ type CreateUserRequest struct {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	ExpiresInSeconds *int   `json:"expires_in_seconds"` // optional field using pointer, can be nil
 }
 
 // CreateChirpRequest represents the request body for creating a chirp
