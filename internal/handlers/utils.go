@@ -10,7 +10,7 @@ func ReturnParseError(w http.ResponseWriter, msg string) {
 		Error string `json:"error"`
 	}
 	w.Header().Set("Content-type", "application/json;charset=utf-8")
-	w.WriteHeader(500)
+	w.WriteHeader(http.StatusUnauthorized)
 	resBody := errorRes{
 		Error: msg,
 	}

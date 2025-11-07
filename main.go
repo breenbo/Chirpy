@@ -75,6 +75,8 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("POST /api/login", userHandler.Login)
 	serveMux.HandleFunc("POST /api/users", userHandler.CreateUser)
 	serveMux.HandleFunc("POST /admin/reset", userHandler.ResetUsers)
+	serveMux.HandleFunc("POST /api/refresh", userHandler.RefreshToken)
+	serveMux.HandleFunc("POST /api/revoke", userHandler.RevokeToken)
 	// chirps
 	serveMux.HandleFunc("POST /api/chirps", chirpHandler.CreateChirps)
 	serveMux.HandleFunc("GET /api/chirps", chirpHandler.GetChirps)
