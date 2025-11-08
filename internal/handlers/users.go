@@ -70,6 +70,67 @@ func (uh *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (uh *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	// check if the accesstoken is valid
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Error getting token in header"))
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, uh.jwtSecret)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Error validating token"))
+		return
+	}
+
+	// get the body data
+	decoder := json.NewDecoder(r.Body)
+	reqbody := models.CreateUserRequest{}
+	err = decoder.Decode(&reqbody)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error parsing the request body"))
+	}
+	hashedPassword, err := auth.HashPassword(reqbody.Password)
+	if err != nil {
+		{
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Error hashing password"))
+		}
+	}
+
+	// update the user in the db
+	user, err := uh.dbQueries.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+		Email:          reqbody.Email,
+		HashedPassword: hashedPassword,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error updating user"))
+		return
+	}
+
+	response := models.User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error parsing response json"))
+	} else {
+		w.Header().Set("Content-type", "application/json;charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}
+}
+
 func (uh *UserHandler) ResetUsers(w http.ResponseWriter, r *http.Request) {
 	platform := os.Getenv("PLATFORM")
 	if platform != "dev" {
