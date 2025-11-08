@@ -185,7 +185,58 @@ func (ch *ChirpHandler) GetOneChirp(w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(response)
 	if err != nil {
 		w.Write([]byte("Error parsing response json"))
+		return
 	} else {
 		w.Write(data)
 	}
+}
+
+func (ch *ChirpHandler) DeleteChirp(w http.ResponseWriter, r *http.Request) {
+	// 1. check the access token in Authorization
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Missing access token"))
+		return
+	}
+	userID, err := auth.ValidateJWT(token, ch.jwtSecret)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Error validating token"))
+		return
+	}
+	// 2. delete chirp only if author logged in (-> 403 if not)
+	chirpIDStr := r.PathValue("id")
+	if chirpIDStr == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing chirp uuid"))
+		return
+	}
+	chirpID, err := uuid.Parse(chirpIDStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Missing chirp uuid"))
+		return
+	}
+	chirp, err := ch.dbQueries.GetOneChirp(r.Context(), chirpID)
+	// 4. id chirps not found -> 404
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if userID != chirp.UserID {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("You are not the author of this chirp"))
+		return
+	}
+
+	// 3. delete the chirps from the db (-> 204)
+	err = ch.dbQueries.DeleteChirp(r.Context(), chirpID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("unable to delete chirp"))
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

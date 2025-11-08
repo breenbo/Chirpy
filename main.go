@@ -82,6 +82,7 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("POST /api/chirps", chirpHandler.CreateChirps)
 	serveMux.HandleFunc("GET /api/chirps", chirpHandler.GetChirps)
 	serveMux.HandleFunc("GET /api/chirps/{id}", chirpHandler.GetOneChirp)
+	serveMux.HandleFunc("DELETE /api/chirps/{id}", chirpHandler.DeleteChirp)
 	//
 	// setup the server
 	//
