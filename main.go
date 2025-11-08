@@ -28,11 +28,13 @@ func main() {
 	}
 	// get the jwtSecret to use for JWT
 	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 
 	apiCfg := &apiConfig{
 		fileserverHits: atomic.Int32{},
 		dbQueries:      dbQueries,
 		jwtSecret:      jwtSecret,
+		polkaKey:       polkaKey,
 	}
 
 	initServer(apiCfg)
@@ -44,6 +46,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries      *database.Queries
 	jwtSecret      string
+	polkaKey       string
 }
 
 func initDB() (*sql.DB, error) {
@@ -61,7 +64,7 @@ func initDB() (*sql.DB, error) {
 }
 
 func initServer(apiCfg *apiConfig) {
-	userHandler := users.NewUserHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
+	userHandler := users.NewUserHandler(apiCfg.dbQueries, apiCfg.jwtSecret, apiCfg.polkaKey)
 	chirpHandler := handlers.NewChirpHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
 
 	// create a server

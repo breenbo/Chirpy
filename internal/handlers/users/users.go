@@ -16,12 +16,14 @@ import (
 type UserHandler struct {
 	dbQueries *database.Queries
 	jwtSecret string
+	polkaKey  string
 }
 
-func NewUserHandler(dbQueries *database.Queries, jwtSecret string) *UserHandler {
+func NewUserHandler(dbQueries *database.Queries, jwtSecret string, apiKey string) *UserHandler {
 	return &UserHandler{
 		dbQueries: dbQueries,
 		jwtSecret: jwtSecret,
+		polkaKey:  apiKey,
 	}
 }
 
@@ -162,10 +164,17 @@ type upgradeWebhook struct {
 const upgradeEvent = "user.upgraded"
 
 func (uh *UserHandler) UpgradeUser(w http.ResponseWriter, r *http.Request) {
+	// check if the ApiKey is the correct one
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil || apiKey != uh.polkaKey {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	// get the body of the webhook
 	decoder := json.NewDecoder(r.Body)
 	reqBody := upgradeWebhook{}
-	err := decoder.Decode(&reqBody)
+	err = decoder.Decode(&reqBody)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

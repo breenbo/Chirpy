@@ -15,7 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const TokenTypeAccess string = "chirpy-access"
+const (
+	TokenTypeAccess string = "chirpy-access"
+	AuthName        string = "Authorization"
+)
 
 // HashPassword -
 func HashPassword(password string) (string, error) {
@@ -90,7 +93,7 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 
 // GetBearerToken -
 func GetBearerToken(headers http.Header) (string, error) {
-	bearer := headers.Get("Authorization")
+	bearer := headers.Get(AuthName)
 	if bearer == "" {
 		return "", errors.New("no authorization")
 	}
@@ -112,4 +115,18 @@ func MakeRefreshToken() (string, error) {
 	}
 
 	return hex.EncodeToString(key), nil
+}
+
+func GetAPIKey(headers http.Header) (string, error) {
+	bearer := headers.Get(AuthName)
+	if bearer == "" {
+		return "", errors.New("no authorization")
+	}
+
+	apiKey := strings.Split(bearer, "ApiKey ")
+	if len(apiKey) != 2 {
+		return "", errors.New("malformed authorization header")
+	}
+
+	return apiKey[1], nil
 }
