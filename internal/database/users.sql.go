@@ -63,17 +63,6 @@ func (q *Queries) ResetUsers(ctx context.Context) error {
 	return err
 }
 
-const updateRedUser = `-- name: UpdateRedUser :exec
-UPDATE users
-SET is_chirpy_red = true
-WHERE id = $1
-`
-
-func (q *Queries) UpdateRedUser(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, updateRedUser, id)
-	return err
-}
-
 const updateUser = `-- name: UpdateUser :one
 UPDATE users 
 SET email = $2, hashed_password = $3, updated_at = NOW()
@@ -99,4 +88,15 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.IsChirpyRed,
 	)
 	return i, err
+}
+
+const upgradeUser = `-- name: UpgradeUser :exec
+UPDATE users
+SET is_chirpy_red = true
+WHERE id = $1
+`
+
+func (q *Queries) UpgradeUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, upgradeUser, id)
+	return err
 }

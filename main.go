@@ -10,6 +10,7 @@ import (
 
 	"github.com/breenbo/chirpy/internal/database"
 	"github.com/breenbo/chirpy/internal/handlers"
+	"github.com/breenbo/chirpy/internal/handlers/users"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -60,7 +61,7 @@ func initDB() (*sql.DB, error) {
 }
 
 func initServer(apiCfg *apiConfig) {
-	userHandler := handlers.NewUserHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
+	userHandler := users.NewUserHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
 	chirpHandler := handlers.NewChirpHandler(apiCfg.dbQueries, apiCfg.jwtSecret)
 
 	// create a server
@@ -75,6 +76,7 @@ func initServer(apiCfg *apiConfig) {
 	serveMux.HandleFunc("POST /api/login", userHandler.Login)
 	serveMux.HandleFunc("POST /api/users", userHandler.CreateUser)
 	serveMux.HandleFunc("PUT /api/users", userHandler.UpdateUser)
+	serveMux.HandleFunc("POST /api/polka/webhooks", userHandler.UpgradeUser)
 	serveMux.HandleFunc("POST /admin/reset", userHandler.ResetUsers)
 	serveMux.HandleFunc("POST /api/refresh", userHandler.RefreshToken)
 	serveMux.HandleFunc("POST /api/revoke", userHandler.RevokeToken)
