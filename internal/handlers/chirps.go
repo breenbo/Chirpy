@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/breenbo/chirpy/internal/auth"
@@ -117,8 +118,15 @@ func (ch *ChirpHandler) CreateChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ch *ChirpHandler) GetChirps(w http.ResponseWriter, r *http.Request) {
+	res := []database.Chirp{}
+	authorID, err := uuid.Parse(r.URL.Query().Get("author_id"))
+	if err != nil {
+		res, err = ch.dbQueries.GetAllChirps(r.Context())
+	} else {
+		res, err = ch.dbQueries.GetUserChirps(r.Context(), authorID)
+	}
+
 	// get chirps from db
-	res, err := ch.dbQueries.GetAllChirps(r.Context())
 	if err != nil {
 		msg := fmt.Sprintf("Error gettings chirps: %v", err)
 		ReturnParseError(w, msg)
@@ -127,9 +135,9 @@ func (ch *ChirpHandler) GetChirps(w http.ResponseWriter, r *http.Request) {
 	// return the chirps
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	w.WriteHeader(200)
-	response := []models.Chirp{}
+	chirps := []models.Chirp{}
 	for _, chirp := range res {
-		response = append(response, models.Chirp{
+		chirps = append(chirps, models.Chirp{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
@@ -138,7 +146,21 @@ func (ch *ChirpHandler) GetChirps(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	data, err := json.Marshal(response)
+	// sort chirps depending on sort query param
+	sortDirection := "asc"
+	sortDirectionParam := r.URL.Query().Get("sort")
+	if sortDirectionParam == "desc" {
+		sortDirection = "desc"
+	}
+
+	sort.Slice(chirps, func(i, j int) bool {
+		if sortDirection == "desc" {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		}
+		return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+	})
+
+	data, err := json.Marshal(chirps)
 	if err != nil {
 		w.Write([]byte("Error parsing response json"))
 	} else {
